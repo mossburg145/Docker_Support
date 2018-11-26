@@ -88,50 +88,69 @@ services:
     environment:
       - TZ=America/New_York
 
-  homebridge:
-    image: oznu/homebridge:latest
-    container_name: "homebridge"
-    restart: always
+  mqtt-bridge:
+    container_name: mqtt-bridge
+    image: stjohnjohnson/smartthings-mqtt-bridge
+    ports:
+      - 8080:8080
+    volumes:
+      - /home/$USER/docker_files/mqtt-bridge:/config
+    restart: on-failure
     depends_on:
-      home-assistant:
+      homeassistant:
         condition: service_healthy
-    network_mode: host
+
+  node-red:
+    container_name: node-red
+    image: nodered/node-red-docker
+    ports:
+      - 1880:1880
+    volumes:
+      - /home/$USER/docker_files/node-red:/data
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+    restart: "no" # because the exit code(s) are wrong
+    depends_on:
+      mosquitto:
+        condition: service_started
+      mqtt-bridge:
+        condition: service_started
+      homeassistant:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:1880"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  dockermon:
+    container_name: dockermon
+    image: philhawthorne/ha-dockermon
+    ports:
+      - 8126:8126
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /home/$USER/docker_files/dockermon:/config
+    restart: on-failure
+
+  organizr:
+    container_name: organizr
+    image: lsioarmhf/organizr
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - /home/$USER/docker_files/organizr:/config:rw
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     environment:
-      - TZ=America/New_York
       - PGID=1000
       - PUID=1000
-    volumes:
-      - /home/$USER/docker_files/homebridge:/homebridge
-
-  dasher:
-    image: clemenstyp/dasher-docker:latest
-    container_name: "Dasher"
-    restart: always
-    depends_on:
-      homebridge:
-        condition: service_started
-    volumes:
-      - ./dasher/config:/root/dasher/config
-    network_mode: "host"
-
-  unifi:
-    image: jacobalberty/unifi:latest
-    container_name: "Unifi"
-    restart: always
-    volumes:
-      - ./unifi/data:/unifi/data
-    ports:
-      - 3478:3478/udp
-      - 10001:10001/udp
-      - 6789:6789/tcp
-      - 8080:8080/tcp
-      - 8880:8880/tcp
-      - 8443:8443/tcp
-      - 8843:8843/tcp
-    environment:
-      - TZ=America/New_York
-    network_mode: "host"
-
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
   # minecraft:
     # #image: itzg/minecraft-server
