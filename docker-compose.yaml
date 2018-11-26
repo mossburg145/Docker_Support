@@ -97,7 +97,7 @@ services:
       - /home/$USER/docker_files/mqtt-bridge:/config
     restart: on-failure
     depends_on:
-      homeassistant:
+      home-assistant:
         condition: service_healthy
 
   node-red:
@@ -111,11 +111,11 @@ services:
       - /etc/timezone:/etc/timezone:ro
     restart: "no" # because the exit code(s) are wrong
     depends_on:
-      mosquitto:
+      mqtt:
         condition: service_started
       mqtt-bridge:
         condition: service_started
-      homeassistant:
+      home-assistant:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:1880"]
